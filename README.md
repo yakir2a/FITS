@@ -10,5 +10,5 @@ by:
 
 
 # Project Goal
-to build and train a maching to detect network traffic thread in real time and alert the user
+Building and training a maching to detect network traffic threats in real time and alert the user
 
