@@ -139,20 +139,82 @@ def encode_numeric_range(df, name, normalized_low=-1, normalized_high=1,
 ##################################################################################################################################################
 ##################################################################################################################################################
 ##################################################################################################################################################
+
+
+
 class NormalizedDF:
+    df = pd.read_csv(
+        "D:/training set/UNSW-NB15/UNSW-NB15_1.csv",
+        header=None)
+    df.columns = ['srcip',
+                'sport',
+                'dstip',
+                'dsport',
+                'proto',
+                'state',
+                'dur',
+                'sbytes',
+                'dbytes',
+                'sttl',
+                'dttl',
+                'sloss',
+                'dloss',
+                'service',
+                'Sload',
+                'Dload',
+                'Spkts',
+                'Dpkts',
+                'swin',
+                'dwin',
+                'stcpb',
+                'dtcpb',
+                'smeansz',
+                'dmeansz',
+                'trans_depth',
+                'res_bdy_len',
+                'Sjit',
+                'Djit',
+                'Stime',
+                'Ltime',
+                'Sintpkt',
+                'Dintpkt',
+                'tcprtt',
+                'synack',
+                'ackdat',
+                'is_sm_ips_ports',
+                'ct_state_ttl',
+                'ct_flw_http_mthd',
+                'is_ftp_login',
+                'ct_ftp_cmd',
+                'ct_srv_src',
+                'ct_srv_dst',
+                'ct_dst_ltm',
+                'ct_src_ ltm',
+                'ct_src_dport_ltm',
+                'ct_dst_sport_ltm',
+                'ct_dst_src_ltm',
+                'attack_cat',
+                'Label']
+
+    df.drop(['srcip','dstip','state','Sload','Dload','trans_depth','res_bdy_len','Sjit','Djit'], axis = 1)
+    df.drop_duplicates()
+
+    encode_numeric_zscore(df, 'sport')
+    encode_numeric_zscore(df, 'dport')
+    encode_text_dummy(df, 'proto')
+    encode_numeric_zscore(df, 'dur')
+    encode_numeric_zscore(df, 'sttl')
+    encode_numeric_zscore(df, 'dttl')
+    encode_numeric_zscore(df, 'dloss')
+    encode_numeric_zscore(df, 'sloss')
+    encode_numeric_zscore(df, 'Spkts')
+    encode_numeric_zscore(df, 'Dpkts')
 
 
-    self.df = None
-    self.x = None
-    self.y = None
+
 
     def __init__(self):
-
-        pd.options.mode.chained_assignment = None  # default='warn'
-
-
-
-
+        self.hi
     def getNormalizeDF(self):
         return self.df
 

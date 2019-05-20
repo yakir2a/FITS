@@ -13,6 +13,23 @@ class Packet():
                         "{} {} {} {} {}".format(self.transport_protocol,packet.ip.dst,packet.ip.src,packet[self.transport_protocol].dstport,packet[self.transport_protocol].srcport)]
         self.ip_layer = {'totalLength' : packet.ip.len, 'srcIp' : packet.ip.src, 'dstIp' : packet.ip.dst}
         self.transport_layer = {'srcPort' : packet[self.transport_protocol].srcport, 'dstPort' : packet[self.transport_protocol].dstport}
+        self.size = int(packet.length)
+
+        try:
+            self.next_seq = int(packet.tcp.nxtseq)
+            self.seq = int(packet.tcp.seq)
+            self.window_size = int(packet.tcp.window_size)
+            #print(dir(packet))
+        except:
+            pass
+        '''
+        #Time to live
+        self.ttl
+        
+        self.state
+        #tcp try and catch boolean var
+        self.loss
+        '''
     '''
     
     need to add function for the ML input
@@ -28,22 +45,93 @@ class Flow:
         self.average_delta = float(packet.time_delta)
         self.session_start = float(packet.timestamp)
 
+        # packet count for dst and src
+        self.sCount = 1
+        self.dCount = 0
+
+        # average packet size for dst and src
+        self.smeansz = packet.size
+        self.dmeansz = 0
+
+
+        # if tcp
+        try:
+            self.sNext_seq = packet.next_seq
+            self.dNext_seq = 0
+            self.swin = packet.window_size
+            self.dwin = 0
+        except:
+            self.sNext_seq = 0
+            self.dNext_seq = 0
+            self.swin = 0
+            self.dwin = 0
+
+        self.sloss = 0
+        self.dloss = 0
+        '''
+        
+        self.sbytes
+        self.dbytes
+        self.sttl
+        self.dttl
+        
+        self.sloss
+        self.dloss
+        '''
+
+
     def getDelta(self):
         return self.flow[0].time_delta
 
-    def addPacket(self,packet):
+    def addPacket(self,packet,sender = 'src'):
         self.flow.appendleft(packet)
         self.count = self.count + 1
+
+        #if tcp
+        try:
+            if sender == 'src':
+                self.swin = packet.window_size
+                if self.sNext_seq > packet.seq:
+                    self.sloss += 1
+                else:
+                    self.sNext_seq = packet.next_seq
+            else:
+                self.dwin = packet.window_size
+                if self.dNext_seq > packet.seq:
+                    self.dloss += 1
+                else:
+                    self.dNext_seq = packet.next_seq
+        except:
+            pass
+
+        # average packet size
+        self.packetSizeAverage(packet, sender)
+
+        # Spkts and Dpkts counts
+        if sender == 'src':
+            self.sCount += 1
+        else:
+            self.dCount += 1
+
+        # average delta time
         self.average_delta = self.calculateDetla(packet.time_delta)
+
         if self.count > Flow.maxSize:
             self.flow.pop()
 
     def calculateDetla(self,newDelta):
         return ((self.count * self.average_delta) + float(newDelta)) / self.count
 
+    # 'dur' attribute
     def sessionDuration(self):
         return float(self.flow[0].timestamp) - self.session_start
 
+    # do average before increasing packet count
+    def packetSizeAverage(self,packet,sender = 'src'):
+        if sender == 'src':
+            self.smeansz = ((self.smeansz*self.sCount) + packet.size)/(self.sCount + 1)
+        else:
+            self.dmeansz = ((self.dmeansz * self.dCount) + packet.size) / (self.dCount + 1)
 
     def getTimestamp(self):
         return float(self.flow[0].timestamp)
@@ -83,19 +171,19 @@ class PriorityFlows:
         check if packet in suspicious list already if so add it to its flow and return False + flowKey
         '''
         if other.flowKey[0] in self._suspiciousFlows:
-            self._suspiciousFlows[other.flowKey[0]].addPacket(other)
+            self._suspiciousFlows[other.flowKey[0]].addPacket(other,'src')
             return (False,other.flowKey[0])
         elif other.flowKey[1] in self._suspiciousFlows:
-            self._suspiciousFlows[other.flowKey[1]].addPacket(other)
+            self._suspiciousFlows[other.flowKey[1]].addPacket(other,'dst')
             return (False,other.flowKey[1])
 
         '''
         check if flow exist if so add packet to it else create new flow with it, pop lowers priorty flow if list full
         '''
         if other.flowKey[0] in self._flows:
-            self._flows[other.flowKey[0]].addPacket(other)
+            self._flows[other.flowKey[0]].addPacket(other,'src')
         elif other.flowKey[1] in self._flows:
-            self._flows[other.flowKey[1]].addPacket(other)
+            self._flows[other.flowKey[1]].addPacket(other,'dst')
         else:
             self.count += 1
             if self.count > PriorityFlows.maxSize:
@@ -131,7 +219,9 @@ class PriorityFlows:
             while heap:
                 v, k = heappop(heap)
                 v = self._flows[k]
-                print("{}, duration: {}, Packets: {}".format(k,v.sessionDuration(),v.count))
+                print(f"\n-- {k}, delta:{v.average_delta}, duration: {v.sessionDuration()}, "
+                      f"Packets: {v.count}, sloss: {v.sloss}, dloss: {v.dloss}\n"
+                      f"   smeansz: {v.smeansz}, dmeansz: {v.dmeansz}")
             return "\n-----------------------------------------------------------------------------------"
         except:
             return "end of heap"
@@ -154,7 +244,7 @@ if __name__ == "__main__":
         for capPacket in cap:
             counter += 1
             badpacket = flows + Packet(capPacket)
-
+           #print(capPacket.highest_layer)
             '''
             if(badpacket):
                 # run through the machine no in suspect list
@@ -164,7 +254,7 @@ if __name__ == "__main__":
                 continue
             '''
 
-            if counter == 200:
+            if counter == 5000:
                 print(flows)
                 counter = 0
     else:
