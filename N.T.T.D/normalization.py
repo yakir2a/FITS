@@ -1,5 +1,6 @@
 import base64
 import os
+from tabulate import tabulate
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -61,6 +62,7 @@ def encode_text_index(df, name ,main=None):
 # Encode a numeric column as zscores
 def encode_numeric_zscore(df, name, mean=None, sd=None):
     if mean is None:
+        df[name] = df[name].map(lambda x: int(x, 16) if type(x) == str else x)
         mean = df[name].mean()
 
     if sd is None:
@@ -149,7 +151,7 @@ class NormalizedDF:
     df.columns = ['srcip',
                 'sport',
                 'dstip',
-                'dsport',
+                'dport',
                 'proto',
                 'state',
                 'dur',
@@ -195,8 +197,17 @@ class NormalizedDF:
                 'ct_dst_src_ltm',
                 'attack_cat',
                 'Label']
+    '''
+    df.drop(['srcip','dstip','state','Sload','Dload','trans_depth','res_bdy_len','Sjit','Djit'
+             ,'Stime','Ltime','Sintpkt','Dintpkt'], axis = 1)
+    '''
 
-    df.drop(['srcip','dstip','state','Sload','Dload','trans_depth','res_bdy_len','Sjit','Djit'], axis = 1)
+    df.drop(df.columns.difference(['sport', 'dport', 'proto', 'dur', 'sttl', 'dttl',
+                                   'dloss', 'sloss', 'Spkts', 'Dpkts', 'swin', 'dwin',
+                                   'stcpb', 'dtcpb', 'smeansz', 'dmeansz', 'synack', 'ackdat', 'Label']), 1, inplace=True)
+
+    df = df.drop(df[~((df.proto == 'udp') | (df.proto == 'tcp') | (df.proto == 'icmp'))].index)
+    df = df.drop(df[(df.sport == '-') | (df.sport == '') | (df.dport == '-') | (df.dport == '')].index)
     df.drop_duplicates()
 
     encode_numeric_zscore(df, 'sport')
@@ -210,14 +221,31 @@ class NormalizedDF:
     encode_numeric_zscore(df, 'Spkts')
     encode_numeric_zscore(df, 'Dpkts')
 
+    # ---- ##
+    encode_numeric_zscore(df, 'swin')
+    encode_numeric_zscore(df, 'dwin')
+    encode_numeric_zscore(df, 'stcpb')
+    encode_numeric_zscore(df, 'dtcpb')
+
+    encode_numeric_zscore(df, 'smeansz')
+    encode_numeric_zscore(df, 'dmeansz')
+
+    encode_numeric_zscore(df, 'synack')
+    encode_numeric_zscore(df, 'ackdat')
 
 
 
     def __init__(self):
-        self.hi
+        self.hi = None
+
     def getNormalizeDF(self):
         return self.df
 
 
     def getNormalizeXY(self):
         return self.x, self.y
+
+
+if __name__ == '__main__':
+    test = NormalizedDF()
+    print(tabulate(test.df[:30], headers='keys', tablefmt='psql'))
