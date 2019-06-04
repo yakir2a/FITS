@@ -1,7 +1,7 @@
 import pyshark
 from heapq import heapify, heappush, heappop
 from collections import deque
-
+import socket
 
 
 class Packet():
@@ -13,7 +13,14 @@ class Packet():
                         "{} {} {} {} {}".format(self.transport_protocol,packet.ip.dst,packet.ip.src,packet[self.transport_protocol].dstport,packet[self.transport_protocol].srcport)]
         self.ip_layer = {'totalLength' : packet.ip.len, 'srcIp' : packet.ip.src, 'dstIp' : packet.ip.dst}
         self.transport_layer = {'srcPort' : packet[self.transport_protocol].srcport, 'dstPort' : packet[self.transport_protocol].dstport}
-        self.size = int(packet.length)
+        self.bytes = int(packet.length)
+        # self.bits = 8 * self.bytes
+        # self.delta_seconds = self.time_delta.seconds
+
+        self.srcip = packet.ip.src
+        self.srcport = packet[self.transport_protocol].srcport
+        self.dstip = packet.ip.dst
+        self.dstport = packet[self.transport_protocol].dstport
 
         try:
             self.next_seq = int(packet.tcp.nxtseq)
@@ -48,11 +55,30 @@ class Flow:
         # packet count for dst and src
         self.sCount = 1
         self.dCount = 0
+        # service -> http, ftp, ssh, dns ..,else None
+        try:
+            self.service = socket.getservbyport(int(packet.dstport))
+        except:
+            self.service = 'other'
 
         # average packet size for dst and src
-        self.smeansz = packet.size
+        self.smeansz = packet.bytes
         self.dmeansz = 0
 
+        # Destination to source bytes
+        self.dbytes = 0
+
+        # Source bits per second and Destination bits per second
+        # self.src_bit = packet.bits
+        # self.dst_bit = 0
+        # self.src_delte = packet.delta_seconds
+        # self.dst_delta = 0
+
+
+        if packet.srcip == packet.dstip and packet.srcport == packet.dstport:
+            self.is_sm_ips_ports = 1
+        else:
+            self.is_sm_ips_ports = 0
 
         # if tcp
         try:
@@ -119,6 +145,10 @@ class Flow:
         if self.count > Flow.maxSize:
             self.flow.pop()
 
+        # Destination to source bytes
+        if sender == 'dst':
+            self.dbytes += packet.bytes
+
     def calculateDetla(self,newDelta):
         return ((self.count * self.average_delta) + float(newDelta)) / self.count
 
@@ -129,9 +159,9 @@ class Flow:
     # do average before increasing packet count
     def packetSizeAverage(self,packet,sender = 'src'):
         if sender == 'src':
-            self.smeansz = ((self.smeansz*self.sCount) + packet.size)/(self.sCount + 1)
+            self.smeansz = ((self.smeansz*self.sCount) + packet.bytes)/(self.sCount + 1)
         else:
-            self.dmeansz = ((self.dmeansz * self.dCount) + packet.size) / (self.dCount + 1)
+            self.dmeansz = ((self.dmeansz * self.dCount) + packet.bytes) / (self.dCount + 1)
 
     def getTimestamp(self):
         return float(self.flow[0].timestamp)
@@ -142,7 +172,6 @@ class Flow:
     '''
 
 '''
-
 hold all flows and organize them by priority
 '''
 class PriorityFlows:
@@ -178,7 +207,7 @@ class PriorityFlows:
             return (False,other.flowKey[1])
 
         '''
-        check if flow exist if so add packet to it else create new flow with it, pop lowers priorty flow if list full
+        check if flow exist, if so add packet to it else create new flow with it, pop lowers priorty flow if list full
         '''
         if other.flowKey[0] in self._flows:
             self._flows[other.flowKey[0]].addPacket(other,'src')
@@ -221,7 +250,8 @@ class PriorityFlows:
                 v = self._flows[k]
                 print(f"\n-- {k}, delta:{v.average_delta}, duration: {v.sessionDuration()}, "
                       f"Packets: {v.count}, sloss: {v.sloss}, dloss: {v.dloss}\n"
-                      f"   smeansz: {v.smeansz}, dmeansz: {v.dmeansz}")
+                      f"   smeansz: {v.smeansz}, dmeansz: {v.dmeansz}\n"
+                      f" service: {v.service}, dbytes: {v.dbytes}, is_sm_ips_ports: {v.is_sm_ips_ports}")
             return "\n-----------------------------------------------------------------------------------"
         except:
             return "end of heap"
@@ -259,6 +289,3 @@ if __name__ == "__main__":
                 counter = 0
     else:
         print("none")
-
-
-
