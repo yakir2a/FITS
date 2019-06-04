@@ -145,10 +145,10 @@ def encode_numeric_range(df, name, normalized_low=-1, normalized_high=1,
 
 
 class NormalizedDF:
-    df = pd.read_csv(
+    dfGlobal = pd.read_csv(
         "D:/training set/UNSW-NB15/UNSW-NB15_1.csv",
         header=None)
-    df.columns = ['srcip',
+    dfGlobal.columns = ['srcip',
                 'sport',
                 'dstip',
                 'dport',
@@ -197,55 +197,162 @@ class NormalizedDF:
                 'ct_dst_src_ltm',
                 'attack_cat',
                 'Label']
+
     '''
     df.drop(['srcip','dstip','state','Sload','Dload','trans_depth','res_bdy_len','Sjit','Djit'
              ,'Stime','Ltime','Sintpkt','Dintpkt'], axis = 1)
     '''
 
-    df.drop(df.columns.difference(['sport', 'dport', 'proto', 'dur', 'sttl', 'dttl',
+    dfGlobal.drop(dfGlobal.columns.difference(['sport', 'dport', 'proto', 'dur', 'sttl', 'dttl',
                                    'dloss', 'sloss', 'Spkts', 'Dpkts', 'swin', 'dwin',
                                    'stcpb', 'dtcpb', 'smeansz', 'dmeansz', 'synack', 'ackdat', 'Label']), 1, inplace=True)
 
-    df = df.drop(df[~((df.proto == 'udp') | (df.proto == 'tcp') | (df.proto == 'icmp'))].index)
-    df = df.drop(df[(df.sport == '-') | (df.sport == '') | (df.dport == '-') | (df.dport == '')].index)
-    df.drop_duplicates()
-
-    encode_numeric_zscore(df, 'sport')
-    encode_numeric_zscore(df, 'dport')
-    encode_text_dummy(df, 'proto')
-    encode_numeric_zscore(df, 'dur')
-    encode_numeric_zscore(df, 'sttl')
-    encode_numeric_zscore(df, 'dttl')
-    encode_numeric_zscore(df, 'dloss')
-    encode_numeric_zscore(df, 'sloss')
-    encode_numeric_zscore(df, 'Spkts')
-    encode_numeric_zscore(df, 'Dpkts')
-
-    # ---- ##
-    encode_numeric_zscore(df, 'swin')
-    encode_numeric_zscore(df, 'dwin')
-    encode_numeric_zscore(df, 'stcpb')
-    encode_numeric_zscore(df, 'dtcpb')
-
-    encode_numeric_zscore(df, 'smeansz')
-    encode_numeric_zscore(df, 'dmeansz')
-
-    encode_numeric_zscore(df, 'synack')
-    encode_numeric_zscore(df, 'ackdat')
+    dfGlobal = dfGlobal.drop(dfGlobal[~((dfGlobal.proto == 'udp') | (dfGlobal.proto == 'tcp') | (dfGlobal.proto == 'icmp'))].index)
+    dfGlobal = dfGlobal.drop(dfGlobal[(dfGlobal.sport == '-') | (dfGlobal.sport == '') | (dfGlobal.dport == '-') | (dfGlobal.dport == '')].index)
+    dfGlobal.drop_duplicates()
 
 
 
     def __init__(self):
-        self.hi = None
+        self.df = NormalizedDF.dfGlobal.copy()
+        self.normolize = False
+
 
     def getNormalizeDF(self):
+        if not self.normolize:
+            self._normalize()
         return self.df
 
+    def _normalize(self):
+        if not self.normolize:
+            encode_numeric_zscore(self.df, 'sport')
+            encode_numeric_zscore(self.df, 'dport')
+            encode_text_dummy(self.df, 'proto')
+            encode_numeric_zscore(self.df, 'dur')
+            encode_numeric_zscore(self.df, 'sttl')
+            encode_numeric_zscore(self.df, 'dttl')
+            encode_numeric_zscore(self.df, 'dloss')
+            encode_numeric_zscore(self.df, 'sloss')
+            encode_numeric_zscore(self.df, 'Spkts')
+            encode_numeric_zscore(self.df, 'Dpkts')
 
-    def getNormalizeXY(self):
-        return self.x, self.y
+            # ---- ##
+            encode_numeric_zscore(self.df, 'swin')
+            encode_numeric_zscore(self.df, 'dwin')
+            encode_numeric_zscore(self.df, 'stcpb')
+            encode_numeric_zscore(self.df, 'dtcpb')
 
+            encode_numeric_zscore(self.df, 'smeansz')
+            encode_numeric_zscore(self.df, 'dmeansz')
+
+            encode_numeric_zscore(self.df, 'synack')
+            encode_numeric_zscore(self.df, 'ackdat')
+
+            self.normolize = True
+
+    def getNormalizeXY(self, prc = 0):
+        if not self.normolize:
+            self.getNormalizeDF()
+        if prc:
+            return to_xy(self.df.sample(frac=prc, replace=True, random_state=1), 'Label')
+        return to_xy(self.df, 'Label')
+
+
+    @staticmethod
+    def updateDataSet(path = "D:/training set/UNSW-NB15/UNSW-NB15_1.csv"):
+
+        dfGlobal = pd.read_csv(path, header=None)
+        dfGlobal.columns = ['srcip',
+                            'sport',
+                            'dstip',
+                            'dport',
+                            'proto',
+                            'state',
+                            'dur',
+                            'sbytes',
+                            'dbytes',
+                            'sttl',
+                            'dttl',
+                            'sloss',
+                            'dloss',
+                            'service',
+                            'Sload',
+                            'Dload',
+                            'Spkts',
+                            'Dpkts',
+                            'swin',
+                            'dwin',
+                            'stcpb',
+                            'dtcpb',
+                            'smeansz',
+                            'dmeansz',
+                            'trans_depth',
+                            'res_bdy_len',
+                            'Sjit',
+                            'Djit',
+                            'Stime',
+                            'Ltime',
+                            'Sintpkt',
+                            'Dintpkt',
+                            'tcprtt',
+                            'synack',
+                            'ackdat',
+                            'is_sm_ips_ports',
+                            'ct_state_ttl',
+                            'ct_flw_http_mthd',
+                            'is_ftp_login',
+                            'ct_ftp_cmd',
+                            'ct_srv_src',
+                            'ct_srv_dst',
+                            'ct_dst_ltm',
+                            'ct_src_ ltm',
+                            'ct_src_dport_ltm',
+                            'ct_dst_sport_ltm',
+                            'ct_dst_src_ltm',
+                            'attack_cat',
+                            'Label']
+
+        '''
+        df.drop(['srcip','dstip','state','Sload','Dload','trans_depth','res_bdy_len','Sjit','Djit'
+                 ,'Stime','Ltime','Sintpkt','Dintpkt'], axis = 1)
+        '''
+
+        dfGlobal.drop(dfGlobal.columns.difference(['sport', 'dport', 'proto', 'dur', 'sttl', 'dttl',
+                                                   'dloss', 'sloss', 'Spkts', 'Dpkts', 'swin', 'dwin',
+                                                   'stcpb', 'dtcpb', 'smeansz', 'dmeansz', 'synack', 'ackdat',
+                                                   'Label']), 1, inplace=True)
+
+        dfGlobal = dfGlobal.drop(
+            dfGlobal[~((dfGlobal.proto == 'udp') | (dfGlobal.proto == 'tcp') | (dfGlobal.proto == 'icmp'))].index)
+        try:
+            dfGlobal = dfGlobal.drop(dfGlobal[(dfGlobal.sport == '-') | (dfGlobal.sport == '') | (dfGlobal.dport == '-') | (dfGlobal.dport == '')].index)
+        except TypeError as e:
+            print(e)
+        dfGlobal.drop_duplicates()
+
+        NormalizedDF.dfGlobal = pd.concat([NormalizedDF.dfGlobal,dfGlobal])
+
+def main():
+    #test = NormalizedDF()
+    # print(tabulate(test.df[:30], headers='keys', tablefmt='psql'))
+    #test.getNormalizeDF()
+    # print(tabulate(test.df[:30], headers='keys', tablefmt='psql'))
+    NormalizedDF.updateDataSet("D:/training set/UNSW-NB15/UNSW-NB15_2.csv")
+    #test2 = NormalizedDF()
+    # print(tabulate(test2.df[:30], headers='keys', tablefmt='psql'))
+    #test2.getNormalizeDF()
+    # print(tabulate(test2.df[:30], headers='keys', tablefmt='psql'))
+    NormalizedDF.updateDataSet("D:/training set/UNSW-NB15/UNSW-NB15_3.csv")
+    #test3 = NormalizedDF()
+    # print(tabulate(test2.df[:30], headers='keys', tablefmt='psql'))
+    #test3.getNormalizeDF()
+    # print(tabulate(test2.df[:30], headers='keys', tablefmt='psql'))
+    NormalizedDF.updateDataSet("D:/training set/UNSW-NB15/UNSW-NB15_4.csv")
+    test4 = NormalizedDF()
+    # print(tabulate(test2.df[:30], headers='keys', tablefmt='psql'))
+    test4.getNormalizeDF()
+    print(tabulate(test4.df[:30], headers='keys', tablefmt='psql'))
+    return test4
 
 if __name__ == '__main__':
-    test = NormalizedDF()
-    print(tabulate(test.df[:30], headers='keys', tablefmt='psql'))
+    main()
