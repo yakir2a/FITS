@@ -1,4 +1,5 @@
 import pyshark
+import json
 from heapq import heapify, heappush, heappop
 from collections import deque
 import socket
@@ -9,10 +10,15 @@ class Packet():
         self.transport_protocol = packet.transport_layer
         self.time_delta = packet[self.transport_protocol].time_delta
         self.timestamp = packet.sniff_timestamp
-        self.flowKey = ["{} {} {} {} {}".format(self.transport_protocol,packet.ip.src,packet.ip.dst,packet[self.transport_protocol].srcport,packet[self.transport_protocol].dstport),
-                        "{} {} {} {} {}".format(self.transport_protocol,packet.ip.dst,packet.ip.src,packet[self.transport_protocol].dstport,packet[self.transport_protocol].srcport)]
-        self.ip_layer = {'totalLength' : packet.ip.len, 'srcIp' : packet.ip.src, 'dstIp' : packet.ip.dst}
-        self.transport_layer = {'srcPort' : packet[self.transport_protocol].srcport, 'dstPort' : packet[self.transport_protocol].dstport}
+        self.flowKey = ["{} {} {} {} {}".format(self.transport_protocol, packet.ip.src, packet.ip.dst,
+                                                packet[self.transport_protocol].srcport,
+                                                packet[self.transport_protocol].dstport),
+                        "{} {} {} {} {}".format(self.transport_protocol, packet.ip.dst, packet.ip.src,
+                                                packet[self.transport_protocol].dstport,
+                                                packet[self.transport_protocol].srcport)]
+        self.ip_layer = {'totalLength': packet.ip.len, 'srcIp': packet.ip.src, 'dstIp': packet.ip.dst}
+        self.transport_layer = {'srcPort': packet[self.transport_protocol].srcport,
+                                'dstPort': packet[self.transport_protocol].dstport}
         self.bytes = int(packet.length)
         # self.bits = 8 * self.bytes
         # self.delta_seconds = self.time_delta.seconds
@@ -26,7 +32,7 @@ class Packet():
             self.next_seq = int(packet.tcp.nxtseq)
             self.seq = int(packet.tcp.seq)
             self.window_size = int(packet.tcp.window_size)
-            #print(dir(packet))
+            # print(dir(packet))
         except:
             pass
         '''
@@ -37,6 +43,7 @@ class Packet():
         #tcp try and catch boolean var
         self.loss
         '''
+
     '''
     
     need to add function for the ML input
@@ -45,7 +52,8 @@ class Packet():
 
 class Flow:
     maxSize = 5000
-    def __init__(self,packet):
+
+    def __init__(self, packet):
         self.count = 1
         self.flow = deque([packet])
         self.lastPacket = packet
@@ -55,6 +63,7 @@ class Flow:
         # packet count for dst and src
         self.sCount = 1
         self.dCount = 0
+
         # service -> http, ftp, ssh, dns ..,else None
         try:
             self.service = socket.getservbyport(int(packet.dstport))
@@ -74,7 +83,7 @@ class Flow:
         # self.src_delte = packet.delta_seconds
         # self.dst_delta = 0
 
-
+        # if
         if packet.srcip == packet.dstip and packet.srcport == packet.dstport:
             self.is_sm_ips_ports = 1
         else:
@@ -105,15 +114,14 @@ class Flow:
         self.dloss
         '''
 
-
     def getDelta(self):
         return self.flow[0].time_delta
 
-    def addPacket(self,packet,sender = 'src'):
+    def addPacket(self, packet, sender='src'):
         self.flow.appendleft(packet)
         self.count = self.count + 1
 
-        #if tcp
+        # if tcp
         try:
             if sender == 'src':
                 self.swin = packet.window_size
@@ -149,7 +157,7 @@ class Flow:
         if sender == 'dst':
             self.dbytes += packet.bytes
 
-    def calculateDetla(self,newDelta):
+    def calculateDetla(self, newDelta):
         return ((self.count * self.average_delta) + float(newDelta)) / self.count
 
     # 'dur' attribute
@@ -157,9 +165,9 @@ class Flow:
         return float(self.flow[0].timestamp) - self.session_start
 
     # do average before increasing packet count
-    def packetSizeAverage(self,packet,sender = 'src'):
+    def packetSizeAverage(self, packet, sender='src'):
         if sender == 'src':
-            self.smeansz = ((self.smeansz*self.sCount) + packet.bytes)/(self.sCount + 1)
+            self.smeansz = ((self.smeansz * self.sCount) + packet.bytes) / (self.sCount + 1)
         else:
             self.dmeansz = ((self.dmeansz * self.dCount) + packet.bytes) / (self.dCount + 1)
 
@@ -171,12 +179,22 @@ class Flow:
     need to add statistic function for the ML input 
     '''
 
+
 '''
 hold all flows and organize them by priority
 '''
+
+
 class PriorityFlows:
     maxSize = 5000
-    def __init__ (self, packet=None):
+    '''
+    IMPORTENT if adding or removing features from the real time need to Update input_shape to the current value,
+                        same for output_shape, i case of updating the model to predict more cases
+    '''
+    input_shape = 20
+    output_shape = 2
+
+    def __init__(self, packet=None):
         self.count = 0
         if packet:
             flow = Flow(packet)
@@ -200,19 +218,19 @@ class PriorityFlows:
         check if packet in suspicious list already if so add it to its flow and return False + flowKey
         '''
         if other.flowKey[0] in self._suspiciousFlows:
-            self._suspiciousFlows[other.flowKey[0]].addPacket(other,'src')
-            return (False,other.flowKey[0])
+            self._suspiciousFlows[other.flowKey[0]].addPacket(other, 'src')
+            return (False, other.flowKey[0])
         elif other.flowKey[1] in self._suspiciousFlows:
-            self._suspiciousFlows[other.flowKey[1]].addPacket(other,'dst')
-            return (False,other.flowKey[1])
+            self._suspiciousFlows[other.flowKey[1]].addPacket(other, 'dst')
+            return (False, other.flowKey[1])
 
         '''
         check if flow exist, if so add packet to it else create new flow with it, pop lowers priorty flow if list full
         '''
         if other.flowKey[0] in self._flows:
-            self._flows[other.flowKey[0]].addPacket(other,'src')
+            self._flows[other.flowKey[0]].addPacket(other, 'src')
         elif other.flowKey[1] in self._flows:
-            self._flows[other.flowKey[1]].addPacket(other,'dst')
+            self._flows[other.flowKey[1]].addPacket(other, 'dst')
         else:
             self.count += 1
             if self.count > PriorityFlows.maxSize:
@@ -224,13 +242,13 @@ class PriorityFlows:
         '''
         return True + flowKey
         '''
-        return (True,other.flowKey[0])
+        return (True, other.flowKey[0])
 
-    '''
-    
+    ''' 
     if flow found to be suspicious switch from normal flow to suspicious flow likewise in reverse if 'switchBack' flag is True
     '''
-    def switchList(self,flowKey,switchBack = False):
+
+    def switchList(self, flowKey, switchBack=False):
         if self._flows[flowKey] in self._flows:
             self._suspiciousFlows.update({flowKey: self._flows[flowKey]})
             del self._flows[flowKey]
@@ -239,7 +257,6 @@ class PriorityFlows:
             del self._suspiciousFlows[flowKey]
 
         self._rebuild_heap()
-
 
     def __str__(self):
         print(self.count)
@@ -260,13 +277,27 @@ class PriorityFlows:
     
     place holder this function will return the featurse the machine need for her prediction
     '''
-    def getFeatures(self,flowKey):
+
+    def getFeatures(self, flowKey):
+
+        '''
+        features order to fill:
+        sport, dport, dur, sttl, dttl, sloss, dloss, Spkts, Dpkts, swin, dwin, stcpb, dtcpb, smeansz, dmeansz,
+        synack, ackdat, proto-icmp, proto-tcp, proto-udp
+        '''
+
+        with open('zscore.json', 'r') as zscore:
+            load_z = json.load(zscore)
+        with open('feature_set.json', 'r') as features:
+            load_fs = json.load(features)
+        for k, v in load_z.items():
+            continue
         return 'will return flow features for the machine'
 
 
 if __name__ == "__main__":
-    cap = pyshark.LiveCapture(bpf_filter= "(ip || icmp) and (udp || tcp)")
-    #cap.sniff(timeout=10)
+    cap = pyshark.LiveCapture(bpf_filter="(ip || icmp) and (udp || tcp)")
+    # cap.sniff(timeout=10)
     print(cap)
     counter = 0
     flows = PriorityFlows()
@@ -274,7 +305,7 @@ if __name__ == "__main__":
         for capPacket in cap:
             counter += 1
             badpacket = flows + Packet(capPacket)
-           #print(capPacket.highest_layer)
+            # print(capPacket.highest_layer)
             '''
             if(badpacket):
                 # run through the machine no in suspect list
@@ -284,7 +315,7 @@ if __name__ == "__main__":
                 continue
             '''
 
-            if counter == 5000:
+            if counter == 50:
                 print(flows)
                 counter = 0
     else:

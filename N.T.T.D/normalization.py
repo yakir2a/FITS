@@ -1,5 +1,6 @@
 import base64
 import os
+import json
 from tabulate import tabulate
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,7 +8,20 @@ import pandas as pd
 from sklearn import preprocessing
 from scipy.stats.stats import pearsonr
 
-#from featureSelection import *
+# from featureSelection import *
+
+
+'''
+Global save Boolean Value, if true will save mean and ds values to file
+change to "True" if new data set is trained on the model.
+'''
+SAVE_zscore = False
+
+'''
+Gloval save Boolean value, if true will update feature file
+change to "True" if new feature added to the training set
+'''
+SAVE_features = False
 
 
 # Plot a confusion matrix.
@@ -22,6 +36,7 @@ def plot_confusion_matrix(cm, names, title='Confusion matrix', cmap=plt.cm.Blues
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
+
 
 # Encode text values to dummy variables(i.e. [1,0,0],[0,1,0],[0,0,1] for red,green,blue)
 def encode_text_dummy(df, name):
@@ -44,7 +59,7 @@ def encode_text_single_dummy(df, name, target_values):
 
 
 # Encode text values to indexes(i.e. [1],[2],[3] for red,green,blue).
-def encode_text_index(df, name ,main=None):
+def encode_text_index(df, name, main=None):
     newOutcome = []
     if main is not None:
         for other in df[name]:
@@ -53,7 +68,6 @@ def encode_text_index(df, name ,main=None):
             else:
                 newOutcome.append(main)
         df[name] = newOutcome
-    #print(df[name][490950:491050])           
     le = preprocessing.LabelEncoder()
     df[name] = le.fit_transform(df[name])
     return le.classes_
@@ -69,6 +83,15 @@ def encode_numeric_zscore(df, name, mean=None, sd=None):
         sd = df[name].std()
 
     df[name] = (df[name] - mean) / sd
+    if SAVE_zscore:
+        with open('zscore.json', 'r+') as read:
+            try:
+                load = json.load(read)
+            except:
+                load = {}
+        with open('zscore.json', 'w+') as zscore:
+            load[name] = {'mean': mean, 'sd': sd}
+            json.dump(load, zscore)
 
 
 # Convert all missing values in the specified column to the median
@@ -100,12 +123,14 @@ def to_xy(df, target):
     # Regression
     return df[result].values.astype(np.float32), df[[target]].values.astype(np.float32)
 
+
 # Nicely formatted time string
 def hms_string(sec_elapsed):
     h = int(sec_elapsed / (60 * 60))
     m = int((sec_elapsed % (60 * 60)) / 60)
     s = sec_elapsed % 60
     return f"{h}:{m:>02}:{s:>05.2f}"
+
 
 # Regression chart.
 def chart_regression(pred, y, sort=True):
@@ -117,6 +142,7 @@ def chart_regression(pred, y, sort=True):
     plt.ylabel('output')
     plt.legend()
     plt.show()
+
 
 # Remove all rows where the specified column is +/- sd standard deviations
 def remove_outliers(df, name, sd):
@@ -133,15 +159,13 @@ def encode_numeric_range(df, name, normalized_low=-1, normalized_high=1,
         data_high = max(df[name])
 
     df[name] = ((df[name] - data_low) / (data_high - data_low)) \
-        * (normalized_high - normalized_low) + normalized_low
-
+               * (normalized_high - normalized_low) + normalized_low
 
 
 ##################################################################################################################################################
 ##################################################################################################################################################
 ##################################################################################################################################################
 ##################################################################################################################################################
-
 
 
 class NormalizedDF:
@@ -149,54 +173,54 @@ class NormalizedDF:
         "D:/training set/UNSW-NB15/UNSW-NB15_1.csv",
         header=None)
     dfGlobal.columns = ['srcip',
-                'sport',
-                'dstip',
-                'dport',
-                'proto',
-                'state',
-                'dur',
-                'sbytes',
-                'dbytes',
-                'sttl',
-                'dttl',
-                'sloss',
-                'dloss',
-                'service',
-                'Sload',
-                'Dload',
-                'Spkts',
-                'Dpkts',
-                'swin',
-                'dwin',
-                'stcpb',
-                'dtcpb',
-                'smeansz',
-                'dmeansz',
-                'trans_depth',
-                'res_bdy_len',
-                'Sjit',
-                'Djit',
-                'Stime',
-                'Ltime',
-                'Sintpkt',
-                'Dintpkt',
-                'tcprtt',
-                'synack',
-                'ackdat',
-                'is_sm_ips_ports',
-                'ct_state_ttl',
-                'ct_flw_http_mthd',
-                'is_ftp_login',
-                'ct_ftp_cmd',
-                'ct_srv_src',
-                'ct_srv_dst',
-                'ct_dst_ltm',
-                'ct_src_ ltm',
-                'ct_src_dport_ltm',
-                'ct_dst_sport_ltm',
-                'ct_dst_src_ltm',
-                'attack_cat',
-                'Label']
+                        'sport',
+                        'dstip',
+                        'dport',
+                        'proto',
+                        'state',
+                        'dur',
+                        'sbytes',
+                        'dbytes',
+                        'sttl',
+                        'dttl',
+                        'sloss',
+                        'dloss',
+                        'service',
+                        'Sload',
+                        'Dload',
+                        'Spkts',
+                        'Dpkts',
+                        'swin',
+                        'dwin',
+                        'stcpb',
+                        'dtcpb',
+                        'smeansz',
+                        'dmeansz',
+                        'trans_depth',
+                        'res_bdy_len',
+                        'Sjit',
+                        'Djit',
+                        'Stime',
+                        'Ltime',
+                        'Sintpkt',
+                        'Dintpkt',
+                        'tcprtt',
+                        'synack',
+                        'ackdat',
+                        'is_sm_ips_ports',
+                        'ct_state_ttl',
+                        'ct_flw_http_mthd',
+                        'is_ftp_login',
+                        'ct_ftp_cmd',
+                        'ct_srv_src',
+                        'ct_srv_dst',
+                        'ct_dst_ltm',
+                        'ct_src_ ltm',
+                        'ct_src_dport_ltm',
+                        'ct_dst_sport_ltm',
+                        'ct_dst_src_ltm',
+                        'attack_cat',
+                        'Label']
 
     '''
     df.drop(['srcip','dstip','state','Sload','Dload','trans_depth','res_bdy_len','Sjit','Djit'
@@ -204,19 +228,25 @@ class NormalizedDF:
     '''
 
     dfGlobal.drop(dfGlobal.columns.difference(['sport', 'dport', 'proto', 'dur', 'sttl', 'dttl',
-                                   'dloss', 'sloss', 'Spkts', 'Dpkts', 'swin', 'dwin',
-                                   'stcpb', 'dtcpb', 'smeansz', 'dmeansz', 'synack', 'ackdat', 'Label']), 1, inplace=True)
+                                               'dloss', 'sloss', 'Spkts', 'Dpkts', 'swin', 'dwin',
+                                               'stcpb', 'dtcpb', 'smeansz', 'dmeansz', 'synack', 'ackdat', 'Label']), 1,
+                  inplace=True)
+    if SAVE_features:
+        with open('feature_set.json', 'w+') as update:
+            load = ('sport', 'dport', 'proto', 'dur', 'sttl', 'dttl',
+                                               'dloss', 'sloss', 'Spkts', 'Dpkts', 'swin', 'dwin',
+                                               'stcpb', 'dtcpb', 'smeansz', 'dmeansz', 'synack', 'ackdat')
+            json.dump(load, update)
 
-    dfGlobal = dfGlobal.drop(dfGlobal[~((dfGlobal.proto == 'udp') | (dfGlobal.proto == 'tcp') | (dfGlobal.proto == 'icmp'))].index)
-    dfGlobal = dfGlobal.drop(dfGlobal[(dfGlobal.sport == '-') | (dfGlobal.sport == '') | (dfGlobal.dport == '-') | (dfGlobal.dport == '')].index)
+    dfGlobal = dfGlobal.drop(
+        dfGlobal[~((dfGlobal.proto == 'udp') | (dfGlobal.proto == 'tcp') | (dfGlobal.proto == 'icmp'))].index)
+    dfGlobal = dfGlobal.drop(dfGlobal[(dfGlobal.sport == '-') | (dfGlobal.sport == '') | (dfGlobal.dport == '-') | (
+                dfGlobal.dport == '')].index)
     dfGlobal.drop_duplicates()
-
-
 
     def __init__(self):
         self.df = NormalizedDF.dfGlobal.copy()
         self.normolize = False
-
 
     def getNormalizeDF(self):
         if not self.normolize:
@@ -250,16 +280,15 @@ class NormalizedDF:
 
             self.normolize = True
 
-    def getNormalizeXY(self, prc = 0):
+    def getNormalizeXY(self, prc=0):
         if not self.normolize:
             self.getNormalizeDF()
         if prc:
             return to_xy(self.df.sample(frac=prc, replace=True, random_state=1), 'Label')
         return to_xy(self.df, 'Label')
 
-
     @staticmethod
-    def updateDataSet(path = "D:/training set/UNSW-NB15/UNSW-NB15_1.csv"):
+    def updateDataSet(path="D:/training set/UNSW-NB15/UNSW-NB15_1.csv"):
 
         dfGlobal = pd.read_csv(path, header=None)
         dfGlobal.columns = ['srcip',
@@ -325,27 +354,30 @@ class NormalizedDF:
         dfGlobal = dfGlobal.drop(
             dfGlobal[~((dfGlobal.proto == 'udp') | (dfGlobal.proto == 'tcp') | (dfGlobal.proto == 'icmp'))].index)
         try:
-            dfGlobal = dfGlobal.drop(dfGlobal[(dfGlobal.sport == '-') | (dfGlobal.sport == '') | (dfGlobal.dport == '-') | (dfGlobal.dport == '')].index)
+            dfGlobal = dfGlobal.drop(dfGlobal[
+                                         (dfGlobal.sport == '-') | (dfGlobal.sport == '') | (dfGlobal.dport == '-') | (
+                                                     dfGlobal.dport == '')].index)
         except TypeError as e:
             print(e)
         dfGlobal.drop_duplicates()
 
-        NormalizedDF.dfGlobal = pd.concat([NormalizedDF.dfGlobal,dfGlobal])
+        NormalizedDF.dfGlobal = pd.concat([NormalizedDF.dfGlobal, dfGlobal])
+
 
 def main():
-    #test = NormalizedDF()
+    # test = NormalizedDF()
     # print(tabulate(test.df[:30], headers='keys', tablefmt='psql'))
-    #test.getNormalizeDF()
+    # test.getNormalizeDF()
     # print(tabulate(test.df[:30], headers='keys', tablefmt='psql'))
     NormalizedDF.updateDataSet("D:/training set/UNSW-NB15/UNSW-NB15_2.csv")
-    #test2 = NormalizedDF()
+    # test2 = NormalizedDF()
     # print(tabulate(test2.df[:30], headers='keys', tablefmt='psql'))
-    #test2.getNormalizeDF()
+    # test2.getNormalizeDF()
     # print(tabulate(test2.df[:30], headers='keys', tablefmt='psql'))
     NormalizedDF.updateDataSet("D:/training set/UNSW-NB15/UNSW-NB15_3.csv")
-    #test3 = NormalizedDF()
+    # test3 = NormalizedDF()
     # print(tabulate(test2.df[:30], headers='keys', tablefmt='psql'))
-    #test3.getNormalizeDF()
+    # test3.getNormalizeDF()
     # print(tabulate(test2.df[:30], headers='keys', tablefmt='psql'))
     NormalizedDF.updateDataSet("D:/training set/UNSW-NB15/UNSW-NB15_4.csv")
     test4 = NormalizedDF()
@@ -353,6 +385,7 @@ def main():
     test4.getNormalizeDF()
     print(tabulate(test4.df[:30], headers='keys', tablefmt='psql'))
     return test4
+
 
 if __name__ == '__main__':
     main()
