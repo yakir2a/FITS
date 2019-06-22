@@ -3,6 +3,10 @@ import json
 from heapq import heapify, heappush, heappop
 from collections import deque
 import socket
+from normalization import encode_numeric_zscore
+import numpy as np
+from sklearn import preprocessing
+import pandas as pd
 
 
 class Packet():
@@ -10,6 +14,7 @@ class Packet():
         self.transport_protocol = packet.transport_layer
         self.time_delta = packet[self.transport_protocol].time_delta
         self.timestamp = packet.sniff_timestamp
+        self.ttl = (int)(packet.ip.ttl)
         self.flowKey = ["{} {} {} {} {}".format(self.transport_protocol, packet.ip.src, packet.ip.dst,
                                                 packet[self.transport_protocol].srcport,
                                                 packet[self.transport_protocol].dstport),
@@ -28,10 +33,16 @@ class Packet():
         self.dstip = packet.ip.dst
         self.dstport = packet[self.transport_protocol].dstport
 
+
+
+
+
         try:
             self.next_seq = int(packet.tcp.nxtseq)
             self.seq = int(packet.tcp.seq)
             self.window_size = int(packet.tcp.window_size)
+            self.syn_flag = int(packet.tcp.flags_syn)
+            self.ack_flag = int(packet.tcp.flags_ack)
             # print(dir(packet))
         except:
             pass
@@ -59,6 +70,10 @@ class Flow:
         self.lastPacket = packet
         self.average_delta = float(packet.time_delta)
         self.session_start = float(packet.timestamp)
+        self.proto = packet.transport_protocol
+
+        self.sport = int(packet.srcport)
+        self.dport = int(packet.dstport)
 
         # packet count for dst and src
         self.sCount = 1
@@ -66,9 +81,9 @@ class Flow:
 
         # service -> http, ftp, ssh, dns ..,else None
         try:
-            self.service = socket.getservbyport(int(packet.dstport))
+            self.service = (socket.getservbyport(int(packet.dstport))).lower()
         except:
-            self.service = 'other'
+            self.service = '-'
 
         # average packet size for dst and src
         self.smeansz = packet.bytes
@@ -101,8 +116,26 @@ class Flow:
             self.swin = 0
             self.dwin = 0
 
+        #handsake check
+        if self.proto == 'TCP' and (packet.seq == 0 or packet.syn_flag == 1):
+            self.ack_time = packet.timestamp
+            self.synack_time = 0
+            self.backack_time = 0
+            self.syn_ack = False
+            self.back_ack = False
+        else:
+            self.ack_time = 0
+            self.synack_time = 0
+            self.backack_time = 0
+            self.syn_ack = True
+            self.back_ack = True
+
+
         self.sloss = 0
         self.dloss = 0
+
+        self.sttl = packet.ttl
+        self.dttl = 0
         '''
         
         self.sbytes
@@ -135,6 +168,20 @@ class Flow:
                     self.dloss += 1
                 else:
                     self.dNext_seq = packet.next_seq
+        except:
+            pass
+
+        # catch tcp handsake
+        try:
+            if not self.back_ack:
+                if sender == 'src':
+                        if self.syn_ack and packet.ack_flag == 1:
+                            self.backack_time = packet.timestamp
+                            self.back_ack = True
+                else:
+                    if packet.ack_flag == 1 and packet.syn_flag == 1:
+                        self.synack_time = packet.timestamp
+                        self.syn_ack = True
         except:
             pass
 
@@ -191,7 +238,7 @@ class PriorityFlows:
     IMPORTENT if adding or removing features from the real time need to Update input_shape to the current value,
                         same for output_shape, i case of updating the model to predict more cases
     '''
-    input_shape = 20
+    input_shape = 21
     output_shape = 2
 
     def __init__(self, packet=None):
@@ -231,6 +278,7 @@ class PriorityFlows:
             self._flows[other.flowKey[0]].addPacket(other, 'src')
         elif other.flowKey[1] in self._flows:
             self._flows[other.flowKey[1]].addPacket(other, 'dst')
+            return (True, other.flowKey[1])
         else:
             self.count += 1
             if self.count > PriorityFlows.maxSize:
@@ -249,7 +297,7 @@ class PriorityFlows:
     '''
 
     def switchList(self, flowKey, switchBack=False):
-        if self._flows[flowKey] in self._flows:
+        if flowKey in self._flows:
             self._suspiciousFlows.update({flowKey: self._flows[flowKey]})
             del self._flows[flowKey]
         elif switchBack:
@@ -274,6 +322,24 @@ class PriorityFlows:
             return "end of heap"
 
     '''
+    return the flow for a giving key, if not found return None
+    '''
+    def getFlow(self,flowKey):
+        if flowKey in self._flows:
+            return self._flows[flowKey]
+        elif flowKey in self._suspiciousFlows:
+            return self._suspiciousFlows[flowKey]
+        else:
+            return None
+
+    def get_Handsake(self, flow):
+        if not flow.back_ack:
+            return (0,0)
+        return (float(flow.synack_time) - float(flow.ack_time) , float(flow.backack_time) - float(flow.synack_time))
+
+
+
+    '''
     
     place holder this function will return the featurse the machine need for her prediction
     '''
@@ -286,17 +352,55 @@ class PriorityFlows:
         synack, ackdat, proto-icmp, proto-tcp, proto-udp
         '''
 
+        flow = self.getFlow(flowKey)
+        if flow is None:
+            return None
+
+        #getting handsake timinig if there is one else return 0,0 for both
+        synack , ackdat = self.get_Handsake(flow)
+
+        '''
+        'stcpb', 'dtcpb',
+        '''
+        features = {'sport': flow.sport, 'dport': flow.dport, 'dur': flow.sessionDuration(), 'dbytes': flow.dbytes ,'sttl': flow.sttl,
+                    'dttl': flow.dttl, 'sloss': flow.sloss, 'dloss': flow.dloss, 'service': flow.service,'Spkts': flow.sCount,
+                    'Dpkts': flow.dCount, 'swin': flow.swin, 'dwin': flow.dwin,  'smeansz': flow.smeansz , 'dmeansz': flow.dmeansz,
+                    'synack': synack, 'ackdat': ackdat, 'is_sm_ips_ports': flow.is_sm_ips_ports, 'proto-icmp': 0, 'proto-tcp': 0, 'proto-udp': 0}
+
+        #check what type of proto the flow is and set it
+        if flow.proto == 'UDP':
+            features['proto-udp'] = 1
+        elif flow.proto == 'TCP':
+            features['proto-tcp'] = 1
+        else:
+            features['proto-icmp'] = 1
+
+        #load saved weights
         with open('zscore.json', 'r') as zscore:
             load_z = json.load(zscore)
-        with open('feature_set.json', 'r') as features:
-            load_fs = json.load(features)
-        for k, v in load_z.items():
-            continue
-        return 'will return flow features for the machine'
+
+        #load know features for the machine
+        with open('feature_set.json', 'r') as load_features:
+            load_fs = json.load(load_features)
+
+        with open('text_index.json', 'r') as test_index:
+            classes = json.load(test_index)
+
+        #normaliz the data
+        for item in load_fs:
+            if item in load_z:
+                encode_numeric_zscore(features,item,load_z[item]['mean'],load_z[item]['sd'])
+            elif item in classes:
+                if features['service'] not in classes[item]['le']:
+                    features['service'] = '-'
+                le = preprocessing.LabelEncoder()
+                le.fit(classes[item]['le'])
+                features['service'] = le.transform([features['service']])
+        return np.array([list(features.values())],)
 
 
 if __name__ == "__main__":
-    cap = pyshark.LiveCapture(bpf_filter="(ip || icmp) and (udp || tcp)")
+    cap = pyshark.LiveCapture(bpf_filter="(ip || icmp) and (tcp)")
     # cap.sniff(timeout=10)
     print(cap)
     counter = 0
@@ -305,6 +409,7 @@ if __name__ == "__main__":
         for capPacket in cap:
             counter += 1
             badpacket = flows + Packet(capPacket)
+            flows.getFeatures(badpacket[1])
             # print(capPacket.highest_layer)
             '''
             if(badpacket):

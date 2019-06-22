@@ -19,6 +19,7 @@ if __name__ == '__main__':
     print('standardization & normalization of the Data set + features selection')
     n = main()
     n.df = shuffle(n.df)
+    print(f'total set size :{len(n.df)}')
     print(tabulate(n.df[:30], headers='keys', tablefmt='psql'))
     x, y = n.getNormalizeXY()
 
@@ -43,8 +44,7 @@ if __name__ == '__main__':
     model.compile(loss='categorical_crossentropy', optimizer='adam')
     monitor = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=5, verbose=1, mode='auto')
     checkpointer = ModelCheckpoint(filepath="best_weights.hdf5", verbose=0, save_best_only=True)
-    model.fit(x_train, y_train, validation_data=(x_test, y_test), callbacks=[monitor, checkpointer], verbose=2,
-              epochs=1000)
+    model.fit(x_train, y_train, validation_data=(x_test, y_test), callbacks=[monitor, checkpointer], verbose=2, epochs=1000)
     model.load_weights('best_weights.hdf5')
 
     # Measure accuracy

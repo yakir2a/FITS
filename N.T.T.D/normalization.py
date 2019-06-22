@@ -12,16 +12,34 @@ from scipy.stats.stats import pearsonr
 
 
 '''
-Global save Boolean Value, if true will save mean and ds values to file
+Global save Boolean Value, if true will save 'mean' and 'ds' values to file
 change to "True" if new data set is trained on the model.
 '''
 SAVE_zscore = False
 
 '''
-Gloval save Boolean value, if true will update feature file
+Global save Boolean Value, if true will save the label encoder
+change to "True" if new data set is trained on the model.
+'''
+SAVE_test_index = False
+'''
+
+Global save Boolean value, if true will update feature file
 change to "True" if new feature added to the training set
 '''
 SAVE_features = False
+
+'''
+List of Features to extract from the data set
+'''
+Features = ['sport', 'dport', 'proto', 'dur', 'dbytes', 'sttl', 'dttl',
+            'dloss', 'sloss', 'service', 'Spkts', 'Dpkts', 'swin', 'dwin',
+            'smeansz', 'dmeansz', 'synack', 'ackdat', 'is_sm_ips_ports', 'Label']
+
+'''
+test without: 
+'stcpb', 'dtcpb',
+'''
 
 
 # Plot a confusion matrix.
@@ -69,7 +87,19 @@ def encode_text_index(df, name, main=None):
                 newOutcome.append(main)
         df[name] = newOutcome
     le = preprocessing.LabelEncoder()
-    df[name] = le.fit_transform(df[name])
+    le.fit(df[name])
+
+    if SAVE_test_index:
+        with open('text_index.json', 'r+') as read:
+            try:
+                load = json.load(read)
+            except:
+                load = {}
+        with open('text_index.json', 'w+') as text_index:
+            load[name] = {'le': le.classes_.tolist()}
+            json.dump(load,text_index)
+
+    df[name] = le.transform(df[name])
     return le.classes_
 
 
@@ -168,6 +198,7 @@ def encode_numeric_range(df, name, normalized_low=-1, normalized_high=1,
 ##################################################################################################################################################
 
 
+
 class NormalizedDF:
     dfGlobal = pd.read_csv(
         "D:/training set/UNSW-NB15/UNSW-NB15_1.csv",
@@ -227,15 +258,11 @@ class NormalizedDF:
              ,'Stime','Ltime','Sintpkt','Dintpkt'], axis = 1)
     '''
 
-    dfGlobal.drop(dfGlobal.columns.difference(['sport', 'dport', 'proto', 'dur', 'sttl', 'dttl',
-                                               'dloss', 'sloss', 'Spkts', 'Dpkts', 'swin', 'dwin',
-                                               'stcpb', 'dtcpb', 'smeansz', 'dmeansz', 'synack', 'ackdat', 'Label']), 1,
+    dfGlobal.drop(dfGlobal.columns.difference(Features), 1,
                   inplace=True)
     if SAVE_features:
         with open('feature_set.json', 'w+') as update:
-            load = ('sport', 'dport', 'proto', 'dur', 'sttl', 'dttl',
-                                               'dloss', 'sloss', 'Spkts', 'Dpkts', 'swin', 'dwin',
-                                               'stcpb', 'dtcpb', 'smeansz', 'dmeansz', 'synack', 'ackdat')
+            load = Features
             json.dump(load, update)
 
     dfGlobal = dfGlobal.drop(
@@ -263,14 +290,16 @@ class NormalizedDF:
             encode_numeric_zscore(self.df, 'dttl')
             encode_numeric_zscore(self.df, 'dloss')
             encode_numeric_zscore(self.df, 'sloss')
+            encode_text_index(self.df, 'service')
             encode_numeric_zscore(self.df, 'Spkts')
             encode_numeric_zscore(self.df, 'Dpkts')
+            encode_numeric_zscore(self.df, 'dbytes')
 
             # ---- ##
             encode_numeric_zscore(self.df, 'swin')
             encode_numeric_zscore(self.df, 'dwin')
-            encode_numeric_zscore(self.df, 'stcpb')
-            encode_numeric_zscore(self.df, 'dtcpb')
+           # encode_numeric_zscore(self.df, 'stcpb')
+           # encode_numeric_zscore(self.df, 'dtcpb')
 
             encode_numeric_zscore(self.df, 'smeansz')
             encode_numeric_zscore(self.df, 'dmeansz')
@@ -346,10 +375,7 @@ class NormalizedDF:
                  ,'Stime','Ltime','Sintpkt','Dintpkt'], axis = 1)
         '''
 
-        dfGlobal.drop(dfGlobal.columns.difference(['sport', 'dport', 'proto', 'dur', 'sttl', 'dttl',
-                                                   'dloss', 'sloss', 'Spkts', 'Dpkts', 'swin', 'dwin',
-                                                   'stcpb', 'dtcpb', 'smeansz', 'dmeansz', 'synack', 'ackdat',
-                                                   'Label']), 1, inplace=True)
+        dfGlobal.drop(dfGlobal.columns.difference(Features), 1, inplace=True)
 
         dfGlobal = dfGlobal.drop(
             dfGlobal[~((dfGlobal.proto == 'udp') | (dfGlobal.proto == 'tcp') | (dfGlobal.proto == 'icmp'))].index)

@@ -1,1 +1,1 @@
-["sport", "dport", "proto", "dur", "sttl", "dttl", "dloss", "sloss", "Spkts", "Dpkts", "swin", "dwin", "stcpb", "dtcpb", "smeansz", "dmeansz", "synack", "ackdat"]
+["sport", "dport", "proto", "dur", "dbytes", "sttl", "dttl", "dloss", "sloss", "service", "Spkts", "Dpkts", "swin", "dwin", "smeansz", "dmeansz", "synack", "ackdat", "is_sm_ips_ports", "Label"]

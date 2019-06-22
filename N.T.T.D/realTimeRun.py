@@ -6,6 +6,7 @@ from keras.models import Sequential
 from keras.layers.core import Dense, Activation
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
+import numpy as np
 
 '''
 Global var to switch test and real time use mode
@@ -22,35 +23,39 @@ class Machine:
         self.model.add(Dense(10, kernel_initializer='normal', activation='relu'))
         self.model.add(Dense(1, kernel_initializer='normal'))
         self.model.add(Dense(inputShape['y'], activation='softmax'))
+        self.load_weights('best_weights.hdf5')
 
     def load_weights(self, weights):
         self.model.load_weights(weights)
 
     def predict(self, packetAttribute):
+        x = packetAttribute
         return self.model.predict(packetAttribute)
 
 
 def main():
-    model = Machine()
+    flowList = PriorityFlows()
+    model = Machine({'x': flowList.input_shape, 'y': flowList.output_shape})
 
     cap = pyshark.LiveCapture(bpf_filter="(ip || icmp) and (udp || tcp)")
-
-    flowList = PriorityFlows()
 
     # counter = 0
 
     if cap is not None:
         for capPacket in cap:
             badpacket = flowList + Packet(capPacket)
-            if (badpacket):
+            predict = model.predict(flowList.getFeatures(badpacket[1]))
+            predict_max = np.argmax(predict,axis=1)
+            #print(badpacket[1],' predect: ',predict)
+            if (badpacket[0]):
                 # run through the machine no in suspect list
-                if model.predict(flowList.getFeatures(badpacket[1])):
+                if predict_max[0] == 1:
                     flowList.switchList(badpacket[1])
-                    print("Warning suspiciuse activaty found: ", badpacket[1])
+                    print("Warning suspiciuse activaty found: ", badpacket[1], ', predict: ',predict)
             else:
-                if not model.predict(flowList.getFeatures(badpacket[1])):
-                    flowList.switchList(badpacket[1])  # << mabye will switch back to main flows
-                    print("activaty : ", badpacket[1], " no longer suspiciuse")
+                if predict_max[0] == 0:
+                    flowList.switchList(badpacket[1], True)  # << mabye will switch back to main flows
+                    print("activaty : ", badpacket[1], " no longer suspiciuse, predict: ",predict)
     else:
         print("none")
 
@@ -68,17 +73,22 @@ def testpcap():
         if cap is not None:
             for capPacket in cap:
                 badpacket = flowList + Packet(capPacket)
-                if (badpacket):
+                predict = model.predict(flowList.getFeatures(badpacket[1]))
+                predict_max = np.argmax(predict, axis=1)
+                # print(badpacket[1],' predect: ',predict)
+                if (badpacket[0]):
                     # run through the machine no in suspect list
-                    if model.predict(flowList.getFeatures(badpacket[1])):
+                    if predict_max[0] == 1:
                         flowList.switchList(badpacket[1])
-                        print("Warning suspiciuse activaty found: ", badpacket[1])
+                        print("Warning suspiciuse activaty found: ", badpacket[1], ', predict: ', predict)
                 else:
-                    if not model.predict(flowList.getFeatures(badpacket[1])):
-                        flowList.switchList(badpacket[1])  # << mabye will switch back to main flows
-                        print("activaty : ", badpacket[1], " no longer suspiciuse")
+                    if predict_max[0] == 0:
+                        flowList.switchList(badpacket[1], True)  # << mabye will switch back to main flows
+                        print("activaty : ", badpacket[1], " no longer suspiciuse, predict: ", predict)
         else:
             print("none")
+
+    print('done')
 
 
 if __name__ == "__main__":
