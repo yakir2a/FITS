@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn import preprocessing
 from scipy.stats.stats import pearsonr
 
-# from featureSelection import *
+from featureSelection import *
 
 
 '''
@@ -389,6 +389,26 @@ class NormalizedDF:
 
         NormalizedDF.dfGlobal = pd.concat([NormalizedDF.dfGlobal, dfGlobal])
 
+    def select_features(self):
+
+        print(list(self.df.columns))
+        print('-----------features selection-------------')
+        train_labels = self.df['Label']
+        tmp = self.df
+        tmp.drop('Label', 1, inplace=True)
+        train = tmp
+        fs = FeatureSelector(data=train, labels=train_labels)
+        fs.identify_all(selection_params={'missing_threshold': 0.6,
+                                          'correlation_threshold': 0.98,
+                                          'task': 'classification',
+                                          'eval_metric': 'auc',
+                                          'cumulative_importance': 0.99})
+        fs.feature_importances.head(20)
+        fs.plot_collinear(plot_all=True)
+        fs.plot_collinear()
+        fs.plot_feature_importances(threshold=0.99, plot_n=35)
+        fs.plot_unique()
+        plt.clf()
 
 def main():
     # test = NormalizedDF()
@@ -409,6 +429,7 @@ def main():
     test4 = NormalizedDF()
     # print(tabulate(test2.df[:30], headers='keys', tablefmt='psql'))
     test4.getNormalizeDF()
+    #test4.select_features()
     print(tabulate(test4.df[:30], headers='keys', tablefmt='psql'))
     return test4
 

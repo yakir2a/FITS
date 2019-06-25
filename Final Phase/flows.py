@@ -62,7 +62,7 @@ class Packet():
 
 
 class Flow:
-    maxSize = 5000
+    maxSize = 2500
 
     def __init__(self, packet):
         self.count = 1
@@ -299,9 +299,12 @@ class PriorityFlows:
     def switchList(self, flowKey, switchBack=False):
         if flowKey in self._flows:
             self._suspiciousFlows.update({flowKey: self._flows[flowKey]})
+            self.count -= 1
             del self._flows[flowKey]
         elif switchBack:
             self._flows.update({flowKey: self._suspiciousFlows[flowKey]})
+            if self.count > PriorityFlows.maxSize:
+                self._pop()
             del self._suspiciousFlows[flowKey]
 
         self._rebuild_heap()
@@ -375,26 +378,29 @@ class PriorityFlows:
         else:
             features['proto-icmp'] = 1
 
-        #load saved weights
-        with open('zscore.json', 'r') as zscore:
-            load_z = json.load(zscore)
+        #load saved zscores
+        if not hasattr(self, 'load_z'):
+            with open('zscore.json', 'r') as zscore:
+                self.load_z = json.load(zscore)
 
         #load know features for the machine
-        with open('feature_set.json', 'r') as load_features:
-            load_fs = json.load(load_features)
+        if not hasattr(self, 'load_fs'):
+            with open('feature_set.json', 'r') as load_features:
+                self.load_fs = json.load(load_features)
 
-        with open('text_index.json', 'r') as test_index:
-            classes = json.load(test_index)
+        if not hasattr(self, 'classes'):
+            with open('text_index.json', 'r') as test_index:
+                self.classes = json.load(test_index)
 
         #normaliz the data
-        for item in load_fs:
-            if item in load_z:
-                encode_numeric_zscore(features,item,load_z[item]['mean'],load_z[item]['sd'])
-            elif item in classes:
-                if features['service'] not in classes[item]['le']:
+        for item in self.load_fs:
+            if item in self.load_z:
+                encode_numeric_zscore(features,item,self.load_z[item]['mean'],self.load_z[item]['sd'])
+            elif item in self.classes:
+                if features['service'] not in self.classes[item]['le']:
                     features['service'] = '-'
                 le = preprocessing.LabelEncoder()
-                le.fit(classes[item]['le'])
+                le.fit(self.classes[item]['le'])
                 features['service'] = le.transform([features['service']])
         return np.array([list(features.values())],)
 

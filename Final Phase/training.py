@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn import metrics
 from sklearn.utils import shuffle
 from keras.models import Sequential
-from keras.layers.core import Dense, Activation
+from keras.layers.core import Dense, Activation, Dropout
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
 from normalization import *
@@ -14,9 +14,11 @@ import matplotlib.pyplot as plt
 from sklearn import svm, datasets
 from sklearn.metrics import confusion_matrix
 
+
+
 if __name__ == '__main__':
     #### normalization & standardization #######################
-    print('standardization & normalization of the Data set + features selection')
+    print('standardization & normalization of the Data set')
     n = main()
     n.df = shuffle(n.df)
     print(f'total set size :{len(n.df)}')
@@ -36,26 +38,30 @@ if __name__ == '__main__':
 
     # Create neural net
     model = Sequential()
-    model.add(Dense(10, input_dim=x.shape[1], kernel_initializer='normal', activation='relu'))
-    model.add(Dense(50, kernel_initializer='normal', activation='relu'))
+    model.add(Dense(10, input_dim=x.shape[1], kernel_initializer='normal', activation='elu'))
+    model.add(Dropout(0.1))
+    model.add(Dense(50, kernel_initializer='normal', activation='elu'))
+    model.add(Dropout(0.3))
     model.add(Dense(10, kernel_initializer='normal', activation='relu'))
+    model.add(Dropout(0.1))
     model.add(Dense(1, kernel_initializer='normal'))
     model.add(Dense(y.shape[1], activation='softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer='adam')
+    model.compile(metrics=['accuracy'], loss='categorical_crossentropy', optimizer='adam')
     monitor = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=5, verbose=1, mode='auto')
     checkpointer = ModelCheckpoint(filepath="best_weights.hdf5", verbose=0, save_best_only=True)
-    model.fit(x_train, y_train, validation_data=(x_test, y_test), callbacks=[monitor, checkpointer], verbose=2, epochs=1000)
+    #history = model.fit(x_train, y_train, validation_data=(x_test, y_test), callbacks=[monitor, checkpointer], verbose=2, epochs=1000, batch_size= 10000)
     model.load_weights('best_weights.hdf5')
 
     # Measure accuracy
     pred = model.predict(x_test2)
-    pred = np.argmax(pred, axis=1)
+    pred = np.array([1 if x[1] >= 0.8 else 0 for x in pred])
+    #pred2 = np.argmax(pred, axis=1)
     y_eval = np.argmax(y_test2, axis=1)
     score = metrics.accuracy_score(y_eval, pred)
     print("Validation score: {}".format(score))
 
     pred = model.predict(x_test2)
-    pred = np.argmax(pred, axis=1)
+    pred = np.array([1 if x[1] >= 0.8 else 0 for x in pred])
     y_test2 = np.argmax(y_test2, axis=1)
 
     # Compute confusion matrix

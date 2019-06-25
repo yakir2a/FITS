@@ -3,7 +3,7 @@ from flows import PriorityFlows, Packet
 import pyshark
 import os
 from keras.models import Sequential
-from keras.layers.core import Dense, Activation
+from keras.layers.core import Dense, Activation, Dropout
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
 import numpy as np
@@ -18,10 +18,14 @@ class Machine:
     def __init__(self, inputShape={'x': 0, 'y': 0}):
         self.inputShape = inputShape
         self.model = Sequential()
-        self.model.add(Dense(10, input_dim=inputShape['x'], kernel_initializer='normal', activation='relu'))
-        self.model.add(Dense(50, kernel_initializer='normal', activation='relu'))
+        self.model.add(Dense(10, input_dim=inputShape['x'], kernel_initializer='normal', activation='elu'))
+        self.model.add(Dropout(0.1))
+        self.model.add(Dense(50, kernel_initializer='normal', activation='elu'))
+        self.model.add(Dropout(0.3))
         self.model.add(Dense(10, kernel_initializer='normal', activation='relu'))
+        self.model.add(Dropout(0.1))
         self.model.add(Dense(1, kernel_initializer='normal'))
+        self.model.compile(loss='categorical_crossentropy', optimizer='adam')
         self.model.add(Dense(inputShape['y'], activation='softmax'))
         self.load_weights('best_weights.hdf5')
 
@@ -40,22 +44,23 @@ def main():
     cap = pyshark.LiveCapture(bpf_filter="(ip || icmp) and (udp || tcp)")
 
     # counter = 0
-
+    print("Starting")
     if cap is not None:
         for capPacket in cap:
             badpacket = flowList + Packet(capPacket)
             predict = model.predict(flowList.getFeatures(badpacket[1]))
-            predict_max = np.argmax(predict,axis=1)
-            #print(badpacket[1],' predect: ',predict)
+            predict_max = np.argmax(predict, axis=1)
+            # print(badpacket[1],' predect: ',predict)
             if (badpacket[0]):
                 # run through the machine no in suspect list
-                if predict_max[0] == 1:
+                if predict_max[0] == 1 and predict[0][1] >= 0.8 and flowList.getFlow(badpacket[1]).count > 20:
                     flowList.switchList(badpacket[1])
-                    print("Warning suspiciuse activaty found: ", badpacket[1], ', predict: ',predict)
+                    print("Warning suspiciuse activaty found: ", badpacket[1], ', predict: ', predict)
+
             else:
                 if predict_max[0] == 0:
                     flowList.switchList(badpacket[1], True)  # << mabye will switch back to main flows
-                    print("activaty : ", badpacket[1], " no longer suspiciuse, predict: ",predict)
+                    print("activaty : ", badpacket[1], " no longer suspiciuse, predict: ", predict)
     else:
         print("none")
 
@@ -78,7 +83,7 @@ def testpcap():
                 # print(badpacket[1],' predect: ',predict)
                 if (badpacket[0]):
                     # run through the machine no in suspect list
-                    if predict_max[0] == 1:
+                    if predict_max[0] == 1 and predict[0][1] >= 0.8:
                         flowList.switchList(badpacket[1])
                         print("Warning suspiciuse activaty found: ", badpacket[1], ', predict: ', predict)
                 else:
