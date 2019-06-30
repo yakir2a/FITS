@@ -33,7 +33,7 @@ SAVE_features = False
 List of Features to extract from the data set
 '''
 Features = ['sport', 'dport', 'proto', 'dur', 'dbytes', 'sttl', 'dttl',
-            'dloss', 'sloss', 'service', 'Spkts', 'Dpkts', 'swin', 'dwin',
+            'sloss', 'dloss', 'service', 'Spkts', 'Dpkts', 'swin', 'dwin',
             'smeansz', 'dmeansz', 'synack', 'ackdat', 'is_sm_ips_ports', 'Label']
 
 '''
@@ -288,8 +288,8 @@ class NormalizedDF:
             encode_numeric_zscore(self.df, 'dur')
             encode_numeric_zscore(self.df, 'sttl')
             encode_numeric_zscore(self.df, 'dttl')
-            encode_numeric_zscore(self.df, 'dloss')
             encode_numeric_zscore(self.df, 'sloss')
+            encode_numeric_zscore(self.df, 'dloss')
             encode_text_index(self.df, 'service')
             encode_numeric_zscore(self.df, 'Spkts')
             encode_numeric_zscore(self.df, 'Dpkts')

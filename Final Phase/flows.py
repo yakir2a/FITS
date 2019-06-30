@@ -243,6 +243,7 @@ class PriorityFlows:
 
     def __init__(self, packet=None):
         self.count = 0
+        self.totalFlowCount = 0
         if packet:
             flow = Flow(packet)
             self._flows = {packet.flowKey[0]: flow}
@@ -280,8 +281,10 @@ class PriorityFlows:
             self._flows[other.flowKey[1]].addPacket(other, 'dst')
             return (True, other.flowKey[1])
         else:
-            self.count += 1
-            if self.count > PriorityFlows.maxSize:
+            if self.count < PriorityFlows.maxSize:
+                self.count += 1
+            self.totalFlowCount += 1
+            if self.count >= PriorityFlows.maxSize:
                 self._pop()
             flow = Flow(other)
             self._flows.update({other.flowKey[0]: flow})
@@ -303,7 +306,7 @@ class PriorityFlows:
             del self._flows[flowKey]
         elif switchBack:
             self._flows.update({flowKey: self._suspiciousFlows[flowKey]})
-            if self.count > PriorityFlows.maxSize:
+            if self.count >= PriorityFlows.maxSize:
                 self._pop()
             del self._suspiciousFlows[flowKey]
 
@@ -363,7 +366,7 @@ class PriorityFlows:
         synack , ackdat = self.get_Handsake(flow)
 
         '''
-        'stcpb', 'dtcpb',
+        list of feature we extract for the flow
         '''
         features = {'sport': flow.sport, 'dport': flow.dport, 'dur': flow.sessionDuration(), 'dbytes': flow.dbytes ,'sttl': flow.sttl,
                     'dttl': flow.dttl, 'sloss': flow.sloss, 'dloss': flow.dloss, 'service': flow.service,'Spkts': flow.sCount,
@@ -378,31 +381,38 @@ class PriorityFlows:
         else:
             features['proto-icmp'] = 1
 
-        #load saved zscores
-        if not hasattr(self, 'load_z'):
+        #load saved zscores means and sd
+        if not hasattr(PriorityFlows, 'load_z'):
             with open('zscore.json', 'r') as zscore:
-                self.load_z = json.load(zscore)
+                PriorityFlows.load_z = json.load(zscore)
 
-        #load know features for the machine
-        if not hasattr(self, 'load_fs'):
-            with open('feature_set.json', 'r') as load_features:
-                self.load_fs = json.load(load_features)
-
-        if not hasattr(self, 'classes'):
+        #load saved text_index lists
+        if not hasattr(PriorityFlows, 'classes'):
             with open('text_index.json', 'r') as test_index:
-                self.classes = json.load(test_index)
+                PriorityFlows.classes = json.load(test_index)
+
+        #load known features for the machine
+        if not hasattr(PriorityFlows, 'load_fs'):
+            with open('feature_set.json', 'r') as load_features:
+                PriorityFlows.load_fs = json.load(load_features)
+
 
         #normaliz the data
-        for item in self.load_fs:
-            if item in self.load_z:
-                encode_numeric_zscore(features,item,self.load_z[item]['mean'],self.load_z[item]['sd'])
-            elif item in self.classes:
-                if features['service'] not in self.classes[item]['le']:
+        normalizeFeatures = {}
+        for item in PriorityFlows.load_fs:
+            if item in PriorityFlows.load_z:
+                encode_numeric_zscore(features,item,PriorityFlows.load_z[item]['mean'],PriorityFlows.load_z[item]['sd'])
+            elif item in PriorityFlows.classes:
+                if features['service'] not in PriorityFlows.classes[item]['le']:
                     features['service'] = '-'
                 le = preprocessing.LabelEncoder()
-                le.fit(self.classes[item]['le'])
-                features['service'] = le.transform([features['service']])
-        return np.array([list(features.values())],)
+                le.fit(PriorityFlows.classes[item]['le'])
+                features['service'] = (le.transform([features['service']]))[0]
+        for item in PriorityFlows.load_fs:
+            if item in features:
+                normalizeFeatures[item] = features[item]
+        normalizeFeatures.update({'proto-icmp': 0, 'proto-tcp': 1, 'proto-udp': 0})
+        return np.array([list(normalizeFeatures.values())],)
 
 
 if __name__ == "__main__":

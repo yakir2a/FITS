@@ -54,14 +54,14 @@ if __name__ == '__main__':
 
     # Measure accuracy
     pred = model.predict(x_test2)
-    pred = np.array([1 if x[1] >= 0.8 else 0 for x in pred])
+    pred = np.array([1 if x[1] >= 0.63 else 0 for x in pred])
     #pred2 = np.argmax(pred, axis=1)
     y_eval = np.argmax(y_test2, axis=1)
     score = metrics.accuracy_score(y_eval, pred)
     print("Validation score: {}".format(score))
 
     pred = model.predict(x_test2)
-    pred = np.array([1 if x[1] >= 0.8 else 0 for x in pred])
+    pred = np.array([1 if x[1] >= 0.63 else 0 for x in pred])
     y_test2 = np.argmax(y_test2, axis=1)
 
     # Compute confusion matrix

@@ -53,7 +53,7 @@ def main():
             # print(badpacket[1],' predect: ',predict)
             if (badpacket[0]):
                 # run through the machine no in suspect list
-                if predict_max[0] == 1 and predict[0][1] >= 0.8 and flowList.getFlow(badpacket[1]).count > 20:
+                if predict_max[0] == 1 and predict[0][1] >= 0.63 and flowList.getFlow(badpacket[1]).count > 20:
                     flowList.switchList(badpacket[1])
                     print("Warning suspiciuse activaty found: ", badpacket[1], ', predict: ', predict)
 
@@ -83,7 +83,7 @@ def testpcap():
                 # print(badpacket[1],' predect: ',predict)
                 if (badpacket[0]):
                     # run through the machine no in suspect list
-                    if predict_max[0] == 1 and predict[0][1] >= 0.8:
+                    if predict_max[0] == 1 and predict[0][1] >= 0.63:
                         flowList.switchList(badpacket[1])
                         print("Warning suspiciuse activaty found: ", badpacket[1], ', predict: ', predict)
                 else:
